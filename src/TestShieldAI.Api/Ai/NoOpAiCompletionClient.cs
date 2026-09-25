@@ -15,4 +15,11 @@ public sealed class NoOpAiCompletionClient : IAiCompletionClient
         _ = cancellationToken;
         return Task.FromResult(EmptyJsonResponse);
     }
+
+    public Task<string> CompleteTextAsync(string prompt, CancellationToken cancellationToken = default)
+    {
+        _ = prompt;
+        _ = cancellationToken;
+        return Task.FromResult(string.Empty);
+    }
 }

@@ -42,6 +42,19 @@ public sealed class OpenAiCompletionClient : IAiCompletionClient
             cancellationToken);
     }
 
+    public Task<string> CompleteTextAsync(string prompt, CancellationToken cancellationToken = default)
+    {
+        var transport = _transport ?? CreateSdkTransport();
+        return ProviderAiCompletion.CompleteTextAsync(
+            ProviderName,
+            _options.ModelOrDeployment,
+            _options.TimeoutSeconds,
+            prompt,
+            transport,
+            _logger,
+            cancellationToken);
+    }
+
     private IAiChatCompletionTransport CreateSdkTransport()
     {
         var key = _apiKeys.GetApiKey(AiProvider.OpenAI);

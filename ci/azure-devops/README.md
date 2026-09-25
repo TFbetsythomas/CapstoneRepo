@@ -1,6 +1,8 @@
 # Azure DevOps integration
 
-Runs the existing TestShield AI `POST /api/projects/{projectId}/tests/run` workflow from an Azure DevOps pipeline. TestShield remains the source of truth for generation, execution, validation, regression, coverage, and Safe / Review / Block. This folder is an adapter only.
+Gate 2 quality-gate adapter. Runs the existing TestShield AI `POST /api/projects/{projectId}/tests/run` workflow from an Azure DevOps pipeline. TestShield remains the source of truth for generation, execution, validation, regression, coverage, and Safe / Review / Block. This folder is an adapter only.
+
+Product handover: `docs/project-overview.md`. Jira is not implemented.
 
 ## What it does
 

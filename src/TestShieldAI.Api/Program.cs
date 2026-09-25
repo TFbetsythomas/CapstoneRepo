@@ -1,5 +1,7 @@
 using TestShieldAI.Api.Ai;
 using TestShieldAI.Api.Endpoints;
+using TestShieldAI.Api.Insights;
+using TestShieldAI.Api.Notifications;
 using TestShieldAI.Api.Persistence;
 using TestShieldAI.Api.TestsRun;
 using TestShieldAI.Engine;
@@ -37,6 +39,22 @@ builder.Services.AddHttpClient<HttpApiTestRunner>(client =>
     client.Timeout = HttpApiTestRunner.DefaultTimeout;
 });
 builder.Services.AddTransient<IApiTestRunner>(services => services.GetRequiredService<HttpApiTestRunner>());
+builder.Services.Configure<NotificationOptions>(builder.Configuration.GetSection(NotificationOptions.SectionName));
+builder.Services.AddSingleton<INotificationTriggerUrlAccessor, ConfigurationNotificationTriggerUrlAccessor>();
+builder.Services.AddSingleton<NotificationEventComposer>();
+builder.Services.AddSingleton<NoOpRunCompletedNotifier>();
+builder.Services.AddHttpClient<PowerAutomateHttpNotifier>((services, client) =>
+{
+    var timeoutSeconds = services.GetRequiredService<IOptions<NotificationOptions>>().Value.TimeoutSeconds;
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds > 0 ? timeoutSeconds : 10);
+});
+builder.Services.AddTransient<IRunCompletedNotifier>(services =>
+{
+    var options = services.GetRequiredService<IOptions<NotificationOptions>>().Value;
+    return options.Enabled
+        ? services.GetRequiredService<PowerAutomateHttpNotifier>()
+        : services.GetRequiredService<NoOpRunCompletedNotifier>();
+});
 
 var connectionString = builder.Configuration.GetConnectionString("TestShield")
     ?? throw new InvalidOperationException("Connection string 'TestShield' is not configured.");
@@ -46,6 +64,12 @@ builder.Services.AddScoped<IProjectStore, ProjectStore>();
 builder.Services.AddScoped<IOpenApiSpecificationStore, OpenApiSpecificationStore>();
 builder.Services.AddScoped<IProjectBaselineStore, ProjectBaselineStore>();
 builder.Services.AddScoped<IProjectTestRunStore, ProjectTestRunStore>();
+builder.Services.AddSingleton<IInsightsIntentRouter, InsightsIntentRouter>();
+builder.Services.AddSingleton<IInsightsContextBuilder, InsightsContextBuilder>();
+builder.Services.AddSingleton<InsightsContextFormatter>();
+builder.Services.AddSingleton<IDeterministicInsightsAnswerer, DeterministicInsightsAnswerer>();
+builder.Services.AddSingleton<IInsightsAssistant, LlmInsightsAssistant>();
+builder.Services.AddScoped<IInsightsEvidenceRetriever, InsightsEvidenceRetriever>();
 
 var app = builder.Build();
 
@@ -71,6 +95,7 @@ app.MapProjects();
 app.MapSpecsImport();
 app.MapTestsGenerate();
 app.MapTestsRun();
+app.MapInsightsAsk();
 
 app.Run();
 

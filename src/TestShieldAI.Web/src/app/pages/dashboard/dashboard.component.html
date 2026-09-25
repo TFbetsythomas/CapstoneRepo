@@ -220,6 +220,108 @@
       </ul>
     </ng-container>
   </section>
+
+  <div class="ask-dock">
+    <section
+      class="ask-panel"
+      id="ask-panel"
+      data-testid="ask-panel"
+      *ngIf="askOpen"
+      role="dialog"
+      aria-labelledby="ask-panel-title">
+      <header class="ask-panel-header">
+        <div>
+          <h3 id="ask-panel-title">Ask TestShield AI</h3>
+          <p class="muted">Ask about your latest test run, coverage, regressions and contract findings.</p>
+        </div>
+        <div class="ask-header-actions">
+          <button
+            type="button"
+            class="ask-header-button"
+            data-testid="ask-new-chat"
+            aria-label="Start a new chat"
+            (click)="startNewChat()"
+            [disabled]="asking">
+            New Chat
+          </button>
+          <button
+            type="button"
+            class="ask-header-button"
+            data-testid="ask-close"
+            aria-label="Close Ask TestShield AI"
+            (click)="closeAsk()">
+            Close
+          </button>
+        </div>
+      </header>
+
+      <div class="ask-panel-body" #askBody data-testid="ask-body" (scroll)="onAskBodyScroll()">
+        <ul class="ask-suggestions" aria-label="Suggested questions" *ngIf="askHistory.length === 0 && !asking">
+          <li *ngFor="let suggestion of askSuggestions">
+            <button type="button" data-testid="ask-suggestion" (click)="useSuggestion(suggestion)" [disabled]="askDisabled">
+              {{ suggestion }}
+            </button>
+          </li>
+        </ul>
+
+        <div class="ask-history" data-testid="ask-history" *ngIf="askHistory.length > 0">
+          <article class="ask-turn" *ngFor="let turn of askHistory; let last = last">
+            <p class="ask-user"><strong>You:</strong> {{ turn.question }}</p>
+            <p class="ask-answer" [attr.data-testid]="last ? 'ask-answer' : null">{{ turn.answer }}</p>
+            <p class="muted" *ngIf="turn.answerSource" [attr.data-testid]="last ? 'ask-source' : null">
+              Source: {{ turn.answerSource }}
+            </p>
+            <p class="muted" data-testid="ask-fallback" *ngIf="turn.answerSource === 'deterministic'">
+              Using deterministic evidence because AI is unavailable.
+            </p>
+            <p class="warning" *ngIf="turn.warning" [attr.data-testid]="last ? 'ask-warning' : null">{{ turn.warning }}</p>
+            <p class="muted" *ngIf="turn.storedDecision">Stored decision: {{ turn.storedDecision }}</p>
+          </article>
+        </div>
+
+        <p class="error" data-testid="ask-validation" *ngIf="askValidation">{{ askValidation }}</p>
+        <p class="error" data-testid="ask-error" *ngIf="askError">{{ askError }}</p>
+        <p class="busy" data-testid="ask-thinking" *ngIf="asking">Thinking…</p>
+      </div>
+
+      <form class="ask-form ask-panel-footer" (ngSubmit)="askInsights()">
+        <label class="ask-label" for="ask-question">Question</label>
+        <div class="ask-row">
+          <input
+            id="ask-question"
+            name="askQuestion"
+            type="text"
+            data-testid="ask-input"
+            [value]="askQuestion"
+            (input)="askQuestion = $any($event.target).value"
+            [attr.maxlength]="maxQuestionLength"
+            [disabled]="asking"
+            autocomplete="off"
+            placeholder="Ask about the latest run" />
+          <button
+            type="submit"
+            class="primary ask-send"
+            data-testid="ask-submit"
+            [disabled]="askDisabled"
+            [attr.aria-label]="asking ? 'Thinking' : 'Ask'">
+            <span aria-hidden="true">{{ asking ? '…' : '→' }}</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <button
+      type="button"
+      class="ask-launcher"
+      data-testid="ask-launcher"
+      [attr.aria-expanded]="askOpen"
+      aria-controls="ask-panel"
+      [attr.aria-label]="askOpen ? 'Close Ask TestShield AI' : 'Open Ask TestShield AI'"
+      (click)="toggleAskOpen()">
+      <span class="ask-launcher-icon" aria-hidden="true">🤖</span>
+      <span class="ask-launcher-text">AI</span>
+    </button>
+  </div>
 </section>
 
 <p class="error" *ngIf="!project && error">{{ error }}</p>

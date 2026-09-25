@@ -4,6 +4,8 @@ Angular 19 dashboard for TestShield AI. It consumes the existing ASP.NET Core AP
 
 The dashboard does not recalculate Safe/Review/Block, risk, or coverage.
 
+A floating **Ask TestShield AI** chat (bottom-right) calls `POST /api/projects/{projectId}/insights/ask`. Close keeps in-memory history; New Chat clears only that history. Suggestion chips submit through the same Ask endpoint. Live LLM answers require a configured API provider; otherwise the UI shows the deterministic fallback. See `docs/project-overview.md`.
+
 ## Run locally
 
 1. Start the API (http profile, port 5126):

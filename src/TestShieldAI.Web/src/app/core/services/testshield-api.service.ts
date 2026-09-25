@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  AskInsightsResponse,
   GenerateTestsResponse,
   ImportSpecResponse,
   RunTestsResponse
@@ -29,6 +30,13 @@ export class TestShieldApiService {
     return this.http.post<RunTestsResponse>(
       `/api/projects/${projectId}/tests/run`,
       {}
+    );
+  }
+
+  askInsights(projectId: string, question: string): Observable<AskInsightsResponse> {
+    return this.http.post<AskInsightsResponse>(
+      `/api/projects/${projectId}/insights/ask`,
+      { question }
     );
   }
 }

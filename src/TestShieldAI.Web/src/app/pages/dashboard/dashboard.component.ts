@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { apiErrorMessage } from '../../core/api-error';
 import {
   AiRunSummary,
   ApiTestExecutionResult,
+  AskInsightsResponse,
   Coverage,
   GenerateTestsResponse,
   Project,
@@ -17,13 +18,32 @@ import { ProjectService } from '../../core/services/project.service';
 import { SelectedProjectService } from '../../core/services/selected-project.service';
 import { TestShieldApiService } from '../../core/services/testshield-api.service';
 
+export interface AskTurn {
+  question: string;
+  answer: string;
+  answerSource: string;
+  warning: string | null;
+  storedDecision: string | null;
+}
+
 @Component({
   selector: 'app-dashboard',
   imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, AfterViewChecked {
+  readonly maxQuestionLength = 500;
+  readonly maxAskTurns = 10;
+
+  readonly askSuggestions = [
+    'Explain the latest run',
+    'What tests failed?',
+    'What changed from baseline?',
+    'What coverage gaps exist?',
+    'What negative scenarios exist?'
+  ];
+
   project: Project | null = null;
   specification = '';
   importMessage = '';
@@ -39,6 +59,17 @@ export class DashboardComponent implements OnInit {
   results: ApiTestExecutionResult[] = [];
   generatedTests: GenerateTestsResponse['tests'] = [];
   ai: AiRunSummary | null = null;
+
+  askOpen = false;
+  askQuestion = '';
+  asking = false;
+  askValidation = '';
+  askError = '';
+  askHistory: AskTurn[] = [];
+  @ViewChild('askBody') askBody?: ElementRef<HTMLDivElement>;
+  private askStickToBottom = true;
+  private askSavedScrollTop = 0;
+  private askScrollAction: 'bottom' | 'restore' | null = null;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -76,6 +107,106 @@ export class DashboardComponent implements OnInit {
 
   get loading(): boolean {
     return this.busy !== null;
+  }
+
+  get askDisabled(): boolean {
+    return !this.project || this.loading || this.asking;
+  }
+
+  ngAfterViewChecked(): void {
+    const action = this.askScrollAction;
+    const body = this.askBody?.nativeElement;
+    if (!action || !body) {
+      return;
+    }
+
+    this.askScrollAction = null;
+    body.scrollTop = action === 'bottom' ? body.scrollHeight : this.askSavedScrollTop;
+  }
+
+  toggleAskOpen(): void {
+    if (this.askOpen) {
+      this.captureAskScroll();
+      this.askOpen = false;
+      return;
+    }
+
+    this.askOpen = true;
+    this.askScrollAction = this.askStickToBottom ? 'bottom' : 'restore';
+  }
+
+  closeAsk(): void {
+    this.captureAskScroll();
+    this.askOpen = false;
+  }
+
+  startNewChat(): void {
+    if (this.asking) {
+      return;
+    }
+
+    this.askHistory = [];
+    this.askQuestion = '';
+    this.askValidation = '';
+    this.askError = '';
+    this.askStickToBottom = true;
+    this.askSavedScrollTop = 0;
+    this.askScrollAction = 'bottom';
+  }
+
+  onAskBodyScroll(): void {
+    this.captureAskScroll();
+  }
+
+  useSuggestion(question: string): void {
+    if (this.askDisabled) {
+      return;
+    }
+
+    this.askQuestion = question;
+    this.askValidation = '';
+    this.askError = '';
+    this.askInsights();
+  }
+
+  askInsights(): void {
+    if (!this.project || this.askDisabled) {
+      return;
+    }
+
+    const question = this.askQuestion.trim();
+    this.askValidation = '';
+    this.askError = '';
+
+    if (!question) {
+      this.askValidation = 'Enter a question before asking.';
+      return;
+    }
+
+    if (question.length > this.maxQuestionLength) {
+      this.askValidation = `Question must be ${this.maxQuestionLength} characters or fewer.`;
+      return;
+    }
+
+    this.asking = true;
+    this.askQuestion = '';
+    this.queueAskBottomScroll();
+    this.api.askInsights(this.project.id, question).subscribe({
+      next: response => {
+        this.asking = false;
+        if (!response?.answer) {
+          this.askError = 'The TestShield API returned an empty or invalid response.';
+          return;
+        }
+
+        this.appendAskTurn(question, response);
+        this.queueAskBottomScroll();
+      },
+      error: err => {
+        this.asking = false;
+        this.askError = apiErrorMessage(err);
+      }
+    });
   }
 
   importSpec(): void {
@@ -185,5 +316,34 @@ export class DashboardComponent implements OnInit {
     this.ai = response.ai;
     this.generatedTests = [];
     this.expandedResult = null;
+  }
+
+  private appendAskTurn(question: string, response: AskInsightsResponse): void {
+    this.askHistory = [
+      ...this.askHistory,
+      {
+        question,
+        answer: response.answer,
+        answerSource: response.answerSource,
+        warning: response.warning ?? null,
+        storedDecision: response.evidence?.decision ?? null
+      }
+    ].slice(-this.maxAskTurns);
+  }
+
+  private queueAskBottomScroll(): void {
+    if (this.askStickToBottom) {
+      this.askScrollAction = 'bottom';
+    }
+  }
+
+  private captureAskScroll(): void {
+    const body = this.askBody?.nativeElement;
+    if (!body) {
+      return;
+    }
+
+    this.askSavedScrollTop = body.scrollTop;
+    this.askStickToBottom = body.scrollHeight - body.scrollTop - body.clientHeight <= 56;
   }
 }

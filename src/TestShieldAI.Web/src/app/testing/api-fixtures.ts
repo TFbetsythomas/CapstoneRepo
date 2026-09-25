@@ -1,4 +1,5 @@
 import {
+  AskInsightsResponse,
   Coverage,
   GenerateTestsResponse,
   Project,
@@ -120,6 +121,23 @@ export function runResponse(overrides: Partial<RunTestsResponse> = {}): RunTests
     },
     coverage: sampleCoverage,
     risk: sampleRisk,
+    ...overrides
+  };
+}
+
+export function askInsightsResponse(overrides: Partial<AskInsightsResponse> = {}): AskInsightsResponse {
+  return {
+    question: 'Why was this run blocked?',
+    intent: 'ExplainDecision',
+    answer: 'This run is Block because a high-severity finding was recorded.',
+    assistantAvailable: false,
+    answerSource: 'deterministic',
+    warning: null,
+    evidence: {
+      decision: 'Block',
+      lastRunCompletedAt: '2026-01-02T00:00:00+00:00',
+      retrieved: ['lastRun.decision', 'lastRun.findings']
+    },
     ...overrides
   };
 }

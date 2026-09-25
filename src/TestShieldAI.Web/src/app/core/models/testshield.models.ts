@@ -143,3 +143,23 @@ export interface RunTestsResponse {
   coverage: Coverage;
   risk: RiskSummary;
 }
+
+export interface AskInsightsRequest {
+  question: string;
+}
+
+export interface AskInsightsEvidence {
+  decision?: string | null;
+  lastRunCompletedAt?: string | null;
+  retrieved: string[];
+}
+
+export interface AskInsightsResponse {
+  question: string;
+  intent: string;
+  answer: string;
+  assistantAvailable: boolean;
+  answerSource: string;
+  warning?: string | null;
+  evidence: AskInsightsEvidence;
+}

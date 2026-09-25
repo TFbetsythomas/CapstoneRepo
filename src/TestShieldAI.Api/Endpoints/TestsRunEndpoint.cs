@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Options;
 using TestShieldAI.Api.Contracts;
+using TestShieldAI.Api.Notifications;
 using TestShieldAI.Api.OpenApi;
 using TestShieldAI.Api.Persistence;
 using TestShieldAI.Api.TestsRun;
@@ -29,6 +31,9 @@ public static class TestsRunEndpoint
         TestsRunOrchestrator orchestrator,
         IProjectBaselineStore baselines,
         IProjectTestRunStore lastRuns,
+        IOptions<NotificationOptions> notificationOptions,
+        NotificationEventComposer composer,
+        IRunCompletedNotifier notifier,
         CancellationToken cancellationToken)
     {
         var project = await projects.FindByIdAsync(projectId, cancellationToken);
@@ -79,15 +84,30 @@ public static class TestsRunEndpoint
                     ?.EstablishedAt;
             }
 
-            return Results.Ok(
-                RunTestsMapper.ToResponse(
-                    project.BaseUrl,
-                    execution.Results,
-                    execution.Detection,
-                    baselineEstablishedAt,
-                    execution.Ai,
-                    execution.Coverage,
-                    execution.Risk));
+            var response = RunTestsMapper.ToResponse(
+                project.BaseUrl,
+                execution.Results,
+                execution.Detection,
+                baselineEstablishedAt,
+                execution.Ai,
+                execution.Coverage,
+                execution.Risk);
+
+            try
+            {
+                var options = notificationOptions.Value;
+                if (NotificationPolicy.ShouldNotify(execution.Detection.Decision, options))
+                {
+                    var notificationEvent = composer.Compose(project, execution, options, DateTimeOffset.UtcNow);
+                    await notifier.NotifyAsync(notificationEvent, cancellationToken);
+                }
+            }
+            catch
+            {
+                // Best-effort side effect only. Never fail the run for notification issues.
+            }
+
+            return Results.Ok(response);
         }
         catch (InvalidOperationException ex)
         {

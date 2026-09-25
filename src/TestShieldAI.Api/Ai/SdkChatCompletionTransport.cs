@@ -27,6 +27,20 @@ internal sealed class SdkChatCompletionTransport : IAiChatCompletionTransport
             },
             cancellationToken).ConfigureAwait(false);
 
+        return ReadText(completion);
+    }
+
+    public async Task<string> CompleteTextAsync(string prompt, CancellationToken cancellationToken)
+    {
+        ChatCompletion completion = await _chatClient.CompleteChatAsync(
+            [new UserChatMessage(prompt)],
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        return ReadText(completion);
+    }
+
+    private static string ReadText(ChatCompletion completion)
+    {
         if (completion.Content is null || completion.Content.Count == 0)
         {
             throw new AiCompletionException("The AI provider returned an empty completion.");

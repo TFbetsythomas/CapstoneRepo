@@ -9,14 +9,45 @@ internal static class ProviderAiCompletion
     public static int NormalizeTimeoutSeconds(int timeoutSeconds) =>
         timeoutSeconds > 0 ? timeoutSeconds : 30;
 
-    public static async Task<string> CompleteJsonAsync(
+    public static Task<string> CompleteJsonAsync(
         string provider,
         string model,
         int timeoutSeconds,
         string prompt,
         IAiChatCompletionTransport transport,
         ILogger logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        CompleteAsync(
+            provider,
+            model,
+            timeoutSeconds,
+            logger,
+            cancellationToken,
+            token => transport.CompleteJsonAsync(prompt, token));
+
+    public static Task<string> CompleteTextAsync(
+        string provider,
+        string model,
+        int timeoutSeconds,
+        string prompt,
+        IAiChatCompletionTransport transport,
+        ILogger logger,
+        CancellationToken cancellationToken) =>
+        CompleteAsync(
+            provider,
+            model,
+            timeoutSeconds,
+            logger,
+            cancellationToken,
+            token => transport.CompleteTextAsync(prompt, token));
+
+    private static async Task<string> CompleteAsync(
+        string provider,
+        string model,
+        int timeoutSeconds,
+        ILogger logger,
+        CancellationToken cancellationToken,
+        Func<CancellationToken, Task<string>> complete)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -32,7 +63,7 @@ internal static class ProviderAiCompletion
 
         try
         {
-            var completion = await transport.CompleteJsonAsync(prompt, linked.Token).ConfigureAwait(false);
+            var completion = await complete(linked.Token).ConfigureAwait(false);
             logger.LogInformation(
                 "AI completion finished. Provider={Provider} Model={Model} Status={Status} DurationMs={DurationMs}",
                 provider,
